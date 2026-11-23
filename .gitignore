@@ -1,0 +1,6 @@
+/target
+/montaje-out
+/scratch
+*.mp4
+*.wav
+!examples/**/*.json

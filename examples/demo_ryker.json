@@ -1,0 +1,52 @@
+{
+  "output": { "preset": "youtube", "fps": 30 },
+  "style": "ryker",
+  "sources": {
+    "batalla": "C:/Users/USER/Downloads/EL BRUTAL MINUTO DE LOBO VS CHUTY 🐺 _ GOD LEVEL 2021 _ Ryker.mp4"
+  },
+  "clips": [
+    { "gradient": ["#12002e", "#000000"], "duration": 2.6, "label": "título" },
+    { "src": "batalla", "in": 9.5, "out": 13.0, "transition": { "type": "zoom_in", "duration": 0.45 } },
+    { "src": "batalla", "in": 31.0, "out": 34.5, "transition": { "type": "whip", "direction": "left" },
+      "effects": [ { "type": "punch", "at": 1.9 } ] },
+    { "src": "batalla", "in": 36.2, "out": 38.7, "transition": { "type": "glitch" },
+      "effects": [ { "type": "bw_hit", "at": 0.6, "duration": 1.0 } ] },
+    { "src": "batalla", "in": 40.0, "out": 40.2, "repeat": 3, "label": "stutter" },
+    { "src": "batalla", "in": 40.2, "out": 42.5, "freeze": 0.8 },
+    { "src": "batalla", "in": 44.0, "out": 46.0, "reverse": true, "speed": 2.0, "transition": { "type": "flash" },
+      "effects": [ { "type": "vhs" } ] },
+    { "src": "batalla", "in": 50.0, "out": 51.5, "speed": 0.5, "audio_mode": "pitch", "transition": { "type": "spin" } },
+    { "src": "batalla", "in": 60.0, "out": 63.0, "transition": { "type": "circle" } }
+  ],
+  "layers": [
+    { "type": "particles", "particle": "stars", "start": 0, "end": 2.6 },
+    { "type": "text", "preset": "title", "text": "LOBO E.\nVS\nCHUTY", "start": 0.2, "end": 2.5 },
+    { "type": "text", "preset": "watermark", "text": "MONTAJE", "start": 2.6 },
+    { "type": "captions", "segments": [
+        { "start": 2.8, "end": 5.6, "text": "y cada vez que [suelto] tú te quedas [diminuto]" },
+        { "start": 6.4, "end": 8.4, "text": "yo soy de otro [planeta]" }
+    ] },
+    { "type": "text", "preset": "banner", "text": "VEGETA", "start": 8.0, "duration": 0.9 },
+    { "type": "text", "preset": "kinetic", "text": "¡HIJO DE PERRA!", "start": 9.9, "duration": 1.0, "color": "#ffd400" },
+    { "type": "text", "text": "OBSERVO QUE TE ESTÁS [ESCAMANDO|#b71c1c]", "preset": "subtitle", "reveal": "none",
+      "start": 11.0, "end": 13.0, "size": 70, "echo": { "count": 3, "opacity": 0.4 } },
+    { "type": "rect", "color": "#0e7c86", "width": "30%", "height": 18, "x": 0.25, "y": 0.62, "start": 13.0, "duration": 1.2,
+      "animate_in": "slide_right", "animate_out": "fade" },
+    { "type": "particles", "particle": "embers", "start": 13.0, "end": 19.4, "count": 60 }
+  ],
+  "effects": [
+    { "type": "light_leak", "start": 2.6, "end": 6.0, "amount": 0.35, "fade_in": 0.5, "fade_out": 0.5 },
+    { "type": "beat", "at": [14.2, 14.87, 15.55, 16.2] },
+    { "type": "drop", "at": 17.0 }
+  ],
+  "audio": [
+    { "sfx": "riser", "start": 0.9, "duration": 1.7, "volume": 0.5 },
+    { "sfx": "vine_boom", "at": 9.9, "volume": 0.8 },
+    { "sfx": "rewind", "at": 13.4, "volume": 0.6 },
+    { "sfx": "shutter", "at": 12.9, "volume": 0.8 }
+  ],
+  "audio_effects": [
+    { "type": "echo", "start": 7.6, "end": 8.0, "feedback": 0.5 },
+    { "type": "lowpass", "start": 12.9, "end": 13.7, "cutoff": 600, "target": "clips" }
+  ]
+}
