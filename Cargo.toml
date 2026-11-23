@@ -18,9 +18,13 @@ base64 = "0.22"
 candle-core = { version = "0.11", optional = true }
 candle-nn = { version = "0.11", optional = true }
 candle-transformers = { version = "0.11", optional = true }
+eframe = { version = "0.35", optional = true }
+cpal = { version = "0.18", optional = true }
 
 [features]
-default = ["whisper"]
+default = ["whisper", "studio"]
+# Editor visual (ventana nativa con audio, forma de onda y ajuste por fotogramas)
+studio = ["dep:eframe", "dep:cpal"]
 # Transcripción local con Whisper en Rust puro (candle)
 whisper = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers"]
 

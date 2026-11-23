@@ -19,6 +19,9 @@ pub struct Project {
     /// Alias de archivos: {"batalla": "C:/videos/batalla.mp4"}.
     #[serde(default)]
     pub sources: BTreeMap<String, String>,
+    /// Transcripciones por alias de fuente: {"batalla": "batalla.transcript.json"}. Permiten anclar con "@palabra".
+    #[serde(default)]
+    pub transcripts: BTreeMap<String, String>,
     /// Secuencia principal, una tras otra.
     #[serde(default)]
     pub clips: Vec<Clip>,
@@ -273,6 +276,8 @@ pub struct Layer {
     pub chroma_similarity: Option<f32>,
     pub chroma_smoothness: Option<f32>,
     pub radius: Option<f32>,
+    /// Dibujar como parte del video (antes de la gradación y efectos globales). Lo activa el preset "cutaway".
+    pub base: Option<bool>,
     // partículas
     pub particle: Option<String>,
     pub count: Option<u32>,

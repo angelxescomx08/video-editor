@@ -519,8 +519,26 @@ pub fn grab_frames(path: &str, start: f64, end: f64, count: usize, w: usize, h: 
 
 // ---------------------------------------------------------------- audio
 
-/// Decodifica audio a estéreo f32 intercalado a 48 kHz.
+static AUDIO_CACHE: OnceLock<Mutex<Vec<(String, Arc<Vec<f32>>)>>> = OnceLock::new();
+
+/// Decodifica audio a estéreo f32 intercalado a 48 kHz (con caché en memoria para re-mezclas rápidas).
 pub fn decode_audio(path: &str, start: f64, dur: Option<f64>, tempo: f64) -> Result<Vec<f32>> {
+    let key = format!("{path}|{start:.4}|{dur:?}|{tempo:.5}");
+    let cache = AUDIO_CACHE.get_or_init(|| Mutex::new(Vec::new()));
+    if let Some((_, v)) = cache.lock().unwrap().iter().find(|(k, _)| *k == key) {
+        return Ok((**v).clone());
+    }
+    let v = decode_audio_raw(path, start, dur, tempo)?;
+    let mut c = cache.lock().unwrap();
+    // límite aproximado de memoria: ~60 fragmentos
+    if c.len() >= 60 {
+        c.remove(0);
+    }
+    c.push((key, Arc::new(v.clone())));
+    Ok(v)
+}
+
+fn decode_audio_raw(path: &str, start: f64, dur: Option<f64>, tempo: f64) -> Result<Vec<f32>> {
     let mut cmd = ffmpeg();
     if start > 0.0 {
         cmd.args(["-ss", &format!("{start:.4}")]);

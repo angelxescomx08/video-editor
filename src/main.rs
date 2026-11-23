@@ -1,4 +1,5 @@
 mod analyze;
+mod anchors;
 mod api;
 mod audio;
 mod ease;
@@ -11,6 +12,8 @@ mod project;
 mod render;
 mod sfx;
 mod sheet;
+#[cfg(feature = "studio")]
+mod studio;
 mod text;
 mod timeline;
 mod transcribe;
@@ -96,6 +99,41 @@ enum Cmd {
         #[arg(short, long)]
         output: Option<String>,
     },
+    /// Realinea palabra por palabra una transcripción (tras corregir su texto) y la sobrescribe
+    Align {
+        /// archivo .transcript.json
+        transcript: String,
+        /// video/audio (por defecto, el `source` de la transcripción)
+        #[arg(long)]
+        media: Option<String>,
+        #[arg(long, default_value = "small")]
+        model: String,
+        #[arg(long)]
+        lang: Option<String>,
+        /// solo estos segmentos (índices separados por comas)
+        #[arg(long)]
+        segments: Option<String>,
+    },
+    /// Alinea una letra conocida a un tramo (≤ 29 s) y crea una transcripción
+    AlignText {
+        media: String,
+        #[arg(long, value_parser = util::parse_time)]
+        from: f64,
+        #[arg(long, value_parser = util::parse_time)]
+        to: f64,
+        /// texto (cada línea = un subtítulo)
+        #[arg(long)]
+        text: Option<String>,
+        /// archivo de texto con la letra
+        #[arg(long)]
+        text_file: Option<String>,
+        #[arg(long, default_value = "small")]
+        model: String,
+        #[arg(long)]
+        lang: Option<String>,
+        #[arg(short, long)]
+        output: Option<String>,
+    },
     /// Hoja de contacto (miniaturas con tiempos) de un video
     Sheet {
         path: String,
@@ -134,6 +172,13 @@ enum Cmd {
         style: String,
         #[arg(long)]
         src: Option<String>,
+    },
+    /// Abre el editor visual: vista previa con audio, forma de onda y ajuste de palabras por fotogramas
+    Studio {
+        project: String,
+        /// modelo para realinear
+        #[arg(long, default_value = "small")]
+        model: String,
     },
     /// Inicia el servidor MCP por stdio (para Claude Code, Codex, Kiro...)
     Mcp,
@@ -176,6 +221,20 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             let log = |m: &str| eprintln!("{m}");
             print(&api::transcribe(&path, &model, lang.as_deref(), from, to, output, &log)?);
         }
+        Cmd::Align { transcript, media, model, lang, segments } => {
+            let log = |m: &str| eprintln!("{m}");
+            let only = segments.map(|s| s.split(',').filter_map(|x| x.trim().parse().ok()).collect::<Vec<usize>>());
+            print(&api::align(&transcript, media.as_deref(), &model, lang.as_deref(), only, &log)?);
+        }
+        Cmd::AlignText { media, from, to, text, text_file, model, lang, output } => {
+            let log = |m: &str| eprintln!("{m}");
+            let txt = match (text, text_file) {
+                (Some(t), _) => t.replace("\\n", "\n"),
+                (None, Some(f)) => std::fs::read_to_string(f)?,
+                _ => anyhow::bail!("falta --text o --text-file"),
+            };
+            print(&api::align_text(&media, from, to, &txt, &model, lang.as_deref(), output, &log)?);
+        }
         Cmd::Sheet { path, from, to, count, cols, width, output } => {
             let (v, _, _) = api::contact_sheet(&path, from, to, count, cols, width, output)?;
             print(&v);
@@ -201,6 +260,15 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             }
             std::fs::write(&p, serde_json::to_string_pretty(&api::template(&style, src.as_deref()))?)?;
             println!("creado {path}");
+        }
+        Cmd::Studio { project, model } => {
+            #[cfg(feature = "studio")]
+            studio::run(&project, &model)?;
+            #[cfg(not(feature = "studio"))]
+            {
+                let _ = (project, model);
+                anyhow::bail!("esta compilación no incluye el editor visual (compila con --features studio)");
+            }
         }
         Cmd::Mcp => mcp::serve()?,
     }

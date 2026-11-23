@@ -71,6 +71,24 @@ fn tools() -> Value {
             }, "required": ["path"]}
         },
         {
+            "name": "align",
+            "description": "Realinea palabra por palabra una transcripción con la voz (alineación forzada). Úsalo después de corregir el texto de segmentos en el .transcript.json: las palabras con \"locked\": true no se mueven. Devuelve los segmentos y las palabras dudosas (confianza baja).",
+            "inputSchema": {"type": "object", "properties": {
+                "transcript": {"type": "string", "description": "Ruta al .transcript.json"},
+                "segments": {"type": "array", "items": {"type": "integer"}, "description": "Solo estos segmentos (índices). Vacío = todos."},
+                "model": {"type": "string", "description": "small (por defecto), medium, turbo..."},
+                "language": {"type": "string"}
+            }, "required": ["transcript"]}
+        },
+        {
+            "name": "align_text",
+            "description": "Alinea una letra conocida (cada línea = un subtítulo) a un tramo de ≤ 29 s y crea un .transcript.json con tiempos por palabra. Útil cuando el usuario da la letra exacta.",
+            "inputSchema": {"type": "object", "properties": {
+                "path": {"type": "string"}, "from": {"type": "number"}, "to": {"type": "number"},
+                "text": {"type": "string"}, "model": {"type": "string"}, "language": {"type": "string"}
+            }, "required": ["path", "from", "to", "text"]}
+        },
+        {
             "name": "check",
             "description": "Valida un proyecto y devuelve la línea de tiempo calculada (inicio/fin de cada clip y capa en tiempo de salida) y avisos.",
             "inputSchema": {"type": "object", "properties": project_props}
@@ -144,6 +162,28 @@ fn call(name: &str, a: &Value, progress: Option<Box<dyn Fn(u64, u64) + Send>>) -
             let lang = a.get("language").and_then(|v| v.as_str()).filter(|s| !s.is_empty());
             let log = |m: &str| eprintln!("{m}");
             Ok(text_result(&api::transcribe(p, model, lang, num(a, "from"), num(a, "to"), None, &log)?))
+        }
+        "align" => {
+            let p = a.get("transcript").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("falta transcript"))?;
+            let model = a.get("model").and_then(|v| v.as_str()).unwrap_or("small");
+            let lang = a.get("language").and_then(|v| v.as_str()).filter(|s| !s.is_empty());
+            let only: Option<Vec<usize>> = a
+                .get("segments")
+                .and_then(|v| v.as_array())
+                .map(|v| v.iter().filter_map(|x| x.as_u64().map(|n| n as usize)).collect())
+                .filter(|v: &Vec<usize>| !v.is_empty());
+            let log = |m: &str| eprintln!("{m}");
+            Ok(text_result(&api::align(p, None, model, lang, only, &log)?))
+        }
+        "align_text" => {
+            let p = a.get("path").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("falta path"))?;
+            let text = a.get("text").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("falta text"))?;
+            let model = a.get("model").and_then(|v| v.as_str()).unwrap_or("small");
+            let lang = a.get("language").and_then(|v| v.as_str()).filter(|s| !s.is_empty());
+            let from = num(a, "from").ok_or_else(|| anyhow::anyhow!("falta from"))?;
+            let to = num(a, "to").ok_or_else(|| anyhow::anyhow!("falta to"))?;
+            let log = |m: &str| eprintln!("{m}");
+            Ok(text_result(&api::align_text(p, from, to, text, model, lang, None, &log)?))
         }
         "check" => Ok(text_result(&api::check(&load(a)?)?)),
         "preview" => {

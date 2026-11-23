@@ -19,16 +19,22 @@ pub struct Loaded {
 pub fn load_project_file(path: &str) -> Result<Loaded> {
     let p = Path::new(path);
     let txt = std::fs::read_to_string(p).with_context(|| format!("no se pudo leer el proyecto {path}"))?;
-    let project = project::parse_project(&txt)?;
+    // los editores de Windows suelen guardar con BOM
+    let txt = txt.trim_start_matches('\u{feff}').to_string();
+    // primera lectura: errores con línea y columna
+    let _ = project::parse_project(&txt)?;
     let base = p.parent().map(|x| x.to_path_buf()).filter(|x| !x.as_os_str().is_empty()).unwrap_or_else(|| PathBuf::from("."));
     let base = std::fs::canonicalize(&base).unwrap_or(base);
+    let v: Value = serde_json::from_str(&txt)?;
+    let project = crate::anchors::resolve(v, &base)?;
     let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "video".into());
     Ok(Loaded { project, base, stem })
 }
 
 pub fn load_project_value(v: &Value) -> Result<Loaded> {
-    let project: Project = serde_json::from_value(v.clone()).map_err(|e| anyhow::anyhow!("proyecto inválido: {e}"))?;
+    let _: Project = serde_json::from_value(v.clone()).map_err(|e| anyhow::anyhow!("proyecto inválido: {e}"))?;
     let base = std::env::current_dir()?;
+    let project = crate::anchors::resolve(v.clone(), &base)?;
     Ok(Loaded { project, base, stem: "video".into() })
 }
 
@@ -147,7 +153,8 @@ pub fn transcribe(
     log: &dyn Fn(&str),
 ) -> Result<Value> {
     let abs = std::fs::canonicalize(path).map(|p| strip_unc(&p)).unwrap_or_else(|_| path.to_string());
-    let t = crate::transcribe::transcribe(&abs, model, lang, from.unwrap_or(0.0), to, log)?;
+    let o = crate::transcribe::Opts { model, lang, log };
+    let t = crate::transcribe::transcribe(&abs, from.unwrap_or(0.0), to, &o)?;
     let out = match output {
         Some(o) => PathBuf::from(o),
         None => {
@@ -174,8 +181,59 @@ pub fn transcribe(
         "language": t.language,
         "model": t.model,
         "segments": segs,
-        "notes": "Tiempos en segundos de la fuente. Usa el archivo en una capa {\"type\":\"captions\",\"transcript\":\"...\"}: los tiempos se convierten solos al tiempo de salida según tus clips. Los tiempos por palabra están en el archivo."
+        "notes": "Tiempos en segundos de la fuente, alineados palabra por palabra. Usa el archivo en una capa {\"type\":\"captions\",\"transcript\":\"...\"} o en \"transcripts\" del proyecto para anclar con \"@palabra\". Si corriges el texto de un segmento, ejecuta align para realinearlo."
     }))
+}
+
+fn write_transcript(path: &Path, t: &crate::transcribe::Transcript) -> Result<()> {
+    std::fs::write(path, serde_json::to_string_pretty(t)?)?;
+    std::fs::write(path.with_extension("").with_extension("srt"), crate::transcribe::to_srt(t))?;
+    Ok(())
+}
+
+fn transcript_summary(path: &Path, t: &crate::transcribe::Transcript, only: Option<&[usize]>) -> Value {
+    let segs: Vec<Value> = t
+        .segments
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| only.map(|o| o.contains(i)).unwrap_or(true))
+        .map(|(i, s)| {
+            let doubtful: Vec<&str> = s.words.iter().filter(|w| w.score.map(|x| x < 0.6).unwrap_or(false)).map(|w| w.word.as_str()).collect();
+            json!({"index": i, "start": s.start, "end": s.end, "text": s.text, "doubtful": doubtful})
+        })
+        .collect();
+    json!({"transcript": strip_unc(&std::fs::canonicalize(path).unwrap_or(path.to_path_buf())), "segments": segs})
+}
+
+/// Realinea (tras corregir el texto) y sobrescribe la transcripción.
+pub fn align(transcript: &str, media: Option<&str>, model: &str, lang: Option<&str>, only: Option<Vec<usize>>, log: &dyn Fn(&str)) -> Result<Value> {
+    let p = Path::new(transcript);
+    let mut t = crate::transcribe::load_transcript(p)?;
+    let src = media.map(String::from).unwrap_or_else(|| t.source.clone());
+    for s in t.segments.iter_mut() {
+        s.text = s.text.split_whitespace().collect::<Vec<_>>().join(" ");
+    }
+    let o = crate::transcribe::Opts { model, lang, log };
+    crate::transcribe::align(&src, &mut t, only.as_deref(), &o)?;
+    write_transcript(p, &t)?;
+    Ok(transcript_summary(p, &t, only.as_deref()))
+}
+
+/// Alinea una letra conocida a un tramo y crea una transcripción.
+pub fn align_text(media: &str, from: f64, to: f64, text: &str, model: &str, lang: Option<&str>, output: Option<String>, log: &dyn Fn(&str)) -> Result<Value> {
+    let abs = std::fs::canonicalize(media).map(|p| strip_unc(&p)).unwrap_or_else(|_| media.to_string());
+    let o = crate::transcribe::Opts { model, lang, log };
+    let t = crate::transcribe::align_text(&abs, from, to, text, &o)?;
+    let out = match output {
+        Some(o) => PathBuf::from(o),
+        None => {
+            let stem = Path::new(media).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "audio".into());
+            let safe: String = stem.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).take(40).collect();
+            out_dir(&std::env::current_dir()?).join(format!("{safe}_{from:.0}-{to:.0}.transcript.json"))
+        }
+    };
+    write_transcript(&out, &t)?;
+    Ok(transcript_summary(&out, &t, None))
 }
 
 pub fn catalog() -> Value {

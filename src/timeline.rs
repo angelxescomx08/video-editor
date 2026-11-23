@@ -37,6 +37,7 @@ pub const TEXT_PRESETS: &[(&str, &str)] = &[
     ("caption", "subtítulos de Shorts/TikTok: grandes, contorno, palabra actual resaltada"),
     ("lower_third", "rótulo inferior con caja semitransparente"),
     ("watermark", "marca de agua pequeña en una esquina"),
+    ("cutaway", "(image/video) inserto a pantalla completa sin sonido, con la gradación del video; ideal anclado a una palabra"),
 ];
 pub const PARTICLES: &[&str] = &["embers", "sparks", "snow", "stars", "dust", "confetti", "bokeh", "rain"];
 
@@ -225,7 +226,7 @@ fn merge_layer(l: &mut Layer, d: &Layer) {
         drift, zoom_to, text, font, size, color, stroke_color, stroke_width, shadow_color, shadow_offset, shadow_blur,
         glow_color, glow_radius, box_color, box_padding, box_full_width, highlight_color, highlight_box,
         highlight_colors, letter_spacing, line_height, max_width, align, uppercase, italic, skew, reveal,
-        reveal_duration, echo, radius, particle, count, colors, particle_size, particle_speed
+        reveal_duration, echo, radius, particle, count, colors, particle_size, particle_speed, fit, volume, base
     );
     if l.effects.is_empty() && !d.effects.is_empty() {
         l.effects = d.effects.clone();
@@ -352,6 +353,16 @@ pub fn text_preset(name: &str, unit: f32, style: Option<&str>) -> Option<Layer> 
             animate_out: anim("fade", 0.25),
             ..Default::default()
         },
+        // imagen/video a pantalla completa que tapa el plano mientras sigue sonando el audio principal
+        "cutaway" | "insert" => Layer {
+            width: Some(Len::Pct(100.0)),
+            height: Some(Len::Pct(100.0)),
+            fit: Some("cover".into()),
+            volume: Some(0.0),
+            base: Some(true),
+            zoom_to: Some(1.08),
+            ..Default::default()
+        },
         "watermark" => Layer {
             font: Some("bebas".into()),
             size: Some(38.0 * u),
@@ -443,7 +454,7 @@ fn map_transcript(t: &crate::transcribe::Transcript, clips: &[TClip], max_words:
         let play = c.single; // primera pasada (las repeticiones no se subtitulan)
         for seg in &t.segments {
             let words: Vec<crate::transcribe::Word> = if seg.words.is_empty() {
-                vec![crate::transcribe::Word { word: seg.text.clone(), start: seg.start, end: seg.end }]
+                crate::transcribe::proportional_words(seg)
             } else {
                 seg.words.clone()
             };
@@ -935,12 +946,14 @@ pub fn prepare(p: &Project, base_dir: &Path) -> Result<Timeline> {
                     Err(e) => c.warnings.push(format!("layers[{i}]: no se pudo leer {path}: {e}")),
                 }
             }
-            if let Some(tr) = &l.transcript {
-                let path = c.resolve(tr);
-                match std::fs::read_to_string(&path)
-                    .map_err(|e| e.to_string())
-                    .and_then(|t| serde_json::from_str::<crate::transcribe::Transcript>(&t).map_err(|e| e.to_string()))
-                {
+            // transcripciones: la indicada (ruta o alias de "transcripts") o, si no hay otra fuente, todas las del proyecto
+            let tr_paths: Vec<String> = match &l.transcript {
+                Some(tr) => vec![p.transcripts.get(tr).map(|x| c.resolve(x)).unwrap_or_else(|| c.resolve(tr))],
+                None if l.segments.is_none() && l.srt.is_none() => p.transcripts.values().map(|x| c.resolve(x)).collect(),
+                None => vec![],
+            };
+            for path in tr_paths {
+                match crate::transcribe::load_transcript(Path::new(&path)) {
                     Ok(t) => {
                         let mapped = map_transcript(&t, &clips, l.max_words.unwrap_or(5) as usize);
                         if mapped.is_empty() {
@@ -951,7 +964,7 @@ pub fn prepare(p: &Project, base_dir: &Path) -> Result<Timeline> {
                         }
                         segs.extend(mapped);
                     }
-                    Err(e) => c.warnings.push(format!("layers[{i}]: no se pudo leer la transcripción {path}: {e}")),
+                    Err(e) => c.warnings.push(format!("layers[{i}]: {e}")),
                 }
             }
             let hl: Vec<String> = l.highlight_words.clone().unwrap_or_default().iter().map(|w| norm_word(w)).collect();

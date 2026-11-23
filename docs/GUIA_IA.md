@@ -8,13 +8,13 @@
    - `probe` → duración, resolución, fps, audio.
    - `contact_sheet` → imagen con miniaturas y tiempos. Mira el contenido. Para videos largos, primero una hoja de todo el video (24–40 miniaturas) y después hojas de los tramos interesantes (`from`/`to`).
    - `analyze` → tempo (BPM), `beats`, `onsets` (golpes), `loudest` (momentos más fuertes: reacciones del público, punchlines, drops), `silences`, `energy` (un dígito 0–9 cada `energy_step` s) y, con `scenes: true`, cambios de plano.
-   - `transcribe` → frases con tiempos de la fuente y un `.transcript.json` con tiempos por palabra para usar directamente en `captions`. Va en CPU (~1.6× tiempo real con `small`): transcribe solo los tramos que vas a usar (`from`/`to`). `model`: `tiny`/`base` (rápidos, peores), `small` (por defecto), `medium`/`turbo` (mejores, lentos). Indica `language` si lo sabes (`es`). Revisa el texto: en rap con público puede equivocarse en nombres y jerga; corrige el texto en `segments` si hace falta.
+   - `transcribe` → frases con tiempos de la fuente y un `.transcript.json` con tiempos **por palabra** (alineación forzada con la voz) para usar en `captions` y en anclas `@palabra`. Va en CPU (~1.6× tiempo real con `small`): transcribe solo los tramos que vas a usar (`from`/`to`). `model`: `tiny`/`base` (rápidos, peores), `small` (por defecto), `medium`/`turbo` (mejores, lentos). Indica `language` si lo sabes (`es`). Revisa el texto y las palabras `doubtful` del resultado: en rap con público puede equivocarse en nombres y jerga. Si corriges el texto, realinea con `align` (ver «Sincronía palabra a palabra»).
 2. **Escribir el proyecto** en un archivo `.json`. Las rutas relativas (fuentes, imágenes, transcripciones y el `output` de `render`) se resuelven desde la carpeta del proyecto.
 3. **`check`** → valida y devuelve la línea de tiempo de salida (inicio/fin de cada clip y capa) y avisos. Corrige todos los avisos.
 4. **`preview`** con `times` en los momentos clave (punchlines, transiciones, textos). Mira las imágenes y ajusta.
 5. **`render`** con `draft: true` para un borrador rápido si el usuario quiere verlo; después `render` final.
 
-Por CLI es lo mismo: `montaje probe|sheet|analyze|transcribe|check|preview|render|guide|catalog`.
+Por CLI es lo mismo: `montaje probe|sheet|analyze|transcribe|align|align-text|check|preview|render|guide|catalog`. Para que el usuario ajuste la sincronía a oído: `montaje studio proyecto.json` (editor visual, ver abajo).
 
 ## Estructura del proyecto
 
@@ -23,6 +23,7 @@ Por CLI es lo mismo: `montaje probe|sheet|analyze|transcribe|check|preview|rende
   "output": { "preset": "youtube", "fps": 30 },
   "style": "ryker",
   "sources": { "batalla": "C:/videos/batalla.mp4" },
+  "transcripts": { "batalla": "batalla.transcript.json" },
   "clips": [ ... ],
   "layers": [ ... ],
   "effects": [ ... ],
@@ -37,7 +38,8 @@ Por CLI es lo mismo: `montaje probe|sheet|analyze|transcribe|check|preview|rende
   - `cinematic`: teal & orange suave, viñeta, franjas, grano.
   - `meme`: textos `impact`. `shorts`/`tiktok`: textos `caption`. `clean`/ausente: nada.
 - **`sources`**: alias → ruta. En `src` puedes usar el alias o una ruta.
-- Tiempos: número en segundos (`12.5`) o texto `"1:23.5"`, `"83.5s"`, `"500ms"`.
+- **`transcripts`**: alias de fuente → `.transcript.json`. Activa las anclas `@palabra` y los `captions` sin `transcript` (usan todas las del proyecto).
+- Tiempos: número en segundos (`12.5`), texto `"1:23.5"`, `"83.5s"`, `"500ms"` o un **ancla a una palabra** `"@planeta"` (ver «Anclar a palabras»).
 - Colores: `#rrggbb`, `#rrggbbaa` o nombre (`white`, `black`, `red`, `blue`, `yellow`, `gold`, `purple`, `teal`, `cyan`, `pink`, `orange`, `green`, `gray`).
 - Los campos desconocidos dan error (así detectas erratas).
 
@@ -142,6 +144,7 @@ Se dibujan encima de los clips en orden (la última queda arriba). Campos comune
 - `animate` (en bucle): `wiggle`, `pulse`, `float`, `shake`, `flicker`, `spin`, `glitch`.
 - `drift` [dx, dy]: desplazamiento lineal durante la capa. `zoom_to`: zoom lento (Ken Burns), p. ej. 1.15.
 - `effects`: efectos sobre la propia capa (tiempos relativos a la capa), p. ej. `rgb_split`, `glitch`, `glow`.
+- `base: true`: la capa se dibuja como parte del video (antes de la gradación y los efectos globales), así recibe el mismo look. Lo usa el preset `cutaway`.
 
 ### `text`
 
@@ -158,14 +161,70 @@ Se dibujan encima de los clips en orden (la última queda arriba). Campos comune
 ```json
 {"type": "captions", "segments": [{"start": 4.2, "end": 6.0, "text": "y cada vez que [suelto]", "word_times": [4.2, 4.5, 4.7, 4.9, 5.2]}]}
 ```
-También `srt: "archivo.srt"` o **`transcript: "video.transcript.json"`** (salida de `transcribe`). Con `transcript` los tiempos de la fuente se **convierten solos al tiempo de salida** según los clips que usan esa fuente: los subtítulos siguen tu edición aunque cortes, reordenes o cambies la velocidad. Opciones: `max_words` (palabras por subtítulo, 5), `highlight_words` (lista de palabras que se resaltan en caja: `["planeta", "diminuto"]`). Cada subtítulo es una capa de texto con el preset `subtitle` (o `caption` en shorts); el resto de campos de estilo se heredan.
+También `srt: "archivo.srt"` o **`transcript: "video.transcript.json"`** (salida de `transcribe`). Con `transcript` los tiempos de la fuente se **convierten solos al tiempo de salida** según los clips que usan esa fuente: los subtítulos siguen tu edición aunque cortes, reordenes o cambies la velocidad. Opciones: `max_words` (palabras por subtítulo, 5), `highlight_words` (lista de palabras que se resaltan en caja: `["planeta", "diminuto"]`). Cada subtítulo es una capa de texto con el preset `subtitle` (o `caption` en shorts); el resto de campos de estilo se heredan. Si el proyecto tiene `transcripts`, basta con `{"type": "captions"}`: usa todas.
 
 ### `image`, `video`, `rect`, `particles`
 
 - `image`: `src`, tamaño con `width`/`height` (si das los dos, `fit`: contain|cover|stretch), `radius` (esquinas), `crop`, `chroma_key` (color a quitar, p. ej. `"#00ff00"`, con `chroma_similarity`, `chroma_smoothness`).
+- Preset **`cutaway`** (image o video): inserto a pantalla completa, sin sonido, con la gradación del video. El rap sigue sonando debajo. Ideal anclado a una palabra: `{"type": "video", "preset": "cutaway", "src": "montaña.mp4", "start": "@montaña", "end": "@montaña:end+0.4"}`.
 - `video`: como imagen + `in`, `out`, `speed`, `loop`, `volume` (su audio se mezcla). Sirve para memes en croma, reacciones, picture-in-picture, overlays de partículas (`blend: "screen"`).
 - `rect`: `color`, `width`, `height`, `radius`. Barras de color que entran deslizando, fondos de rótulos.
 - `particles`: `particle` = `embers` (brasas), `sparks`, `snow`, `stars`, `dust`, `confetti`, `bokeh`, `rain`; `count`, `colors`/`color`, `particle_size`, `particle_speed`, `seed`.
+
+## Sincronía palabra a palabra
+
+Los tiempos de cada palabra salen de una alineación forzada con la voz (atención de Whisper + DTW, resolución de 20 ms). No dependen de la ventana que transcribas: la misma palabra cae en el mismo sitio aunque cambies `from`/`to`.
+
+Formato de `.transcript.json`:
+```json
+{"source": "C:/videos/batalla.mp4", "language": "es", "alignment": "dtw",
+ "segments": [{"start": 33.1, "end": 34.4, "text": "yo soy otro planeta",
+   "words": [{"word": "planeta", "start": 33.10, "end": 33.56, "score": 0.92}, {"word": "yo", "start": 32.3, "end": 32.52, "locked": true}]}]}
+```
+- `score` (0–1): confianza de la alineación. Las palabras con `score` < 0.6 salen en `doubtful` en el resultado de `transcribe`/`align`: revísalas (suele ser texto mal reconocido, público gritando o una palabra cortada).
+- `locked: true`: tiempo fijado a mano. `align` no lo toca y reparte las demás palabras del segmento entre las fijadas.
+
+Corregir una transcripción:
+1. Edita el `text` del segmento en el `.transcript.json` (no hace falta tocar `words`).
+2. `align` con `transcript` (y `segments: [3, 4]` para realinear solo esos; vacío = todos). Por CLI: `montaje align batalla.transcript.json --segments 3,4`.
+3. Mira `doubtful` y comprueba con `preview` en esas palabras.
+
+Si el usuario te da la letra exacta, `align_text` (`path`, `from`, `to` ≤ 29 s, `text` con una línea por subtítulo) crea la transcripción directamente sin reconocer la voz. CLI: `montaje align-text video.mp4 --from 60 --to 85 --text-file letra.txt`.
+
+## Anclar a palabras (`@palabra`)
+
+Con `transcripts` en el proyecto, cualquier tiempo puede ser una palabra en lugar de un número. Si luego se corrige el tiempo de esa palabra (con `align` o en el editor visual), **el subtítulo y todo lo anclado se mueven juntos**.
+
+| ancla | significa |
+|---|---|
+| `"@planeta"` | inicio de la primera vez que suena «planeta» |
+| `"@planeta#2"` | la segunda vez |
+| `"@planeta:end"` | final de la palabra |
+| `"@planeta+0.2"`, `"@planeta:end-0.1"` | con desplazamiento en segundos |
+
+- Mayúsculas, tildes (á, é…) y signos dan igual (`@callate` encuentra «Cállate,»); la ñ sí cuenta (`@montaña`).
+- En `clips[].in` / `clips[].out` el ancla da el tiempo **de la fuente** del clip: `{"src": "b", "in": "@callate-0.1", "out": "@mundo:end+0.2"}` corta justo en esas palabras. `#n` cuenta en toda la transcripción de esa fuente.
+- En el resto (`start`, `end`, `at` de capas, efectos, audio y `audio_effects`; `word_times`) da el tiempo **de salida**, y `#n` cuenta solo las palabras que suenan en el montaje, en orden. En efectos de un clip o de una capa es relativo a su inicio, como cualquier tiempo.
+- Si la palabra no está, `check` da error con sugerencias («¿Quisiste decir: planeta, planetas?»).
+
+```json
+"layers": [
+  {"type": "captions", "highlight_words": ["montaña"]},
+  {"type": "video", "preset": "cutaway", "src": "montaña.mp4", "start": "@montaña", "end": "@montaña:end+0.5"},
+  {"type": "text", "preset": "banner", "text": "VEGETA", "start": "@vegeta", "end": "@vegeta:end"}
+],
+"effects": [{"type": "punch", "at": "@diminuto"}],
+"audio": [{"sfx": "vine_boom", "at": "@perra", "volume": 0.7}]
+```
+
+## Editor visual (`montaje studio`)
+
+`montaje studio proyecto.json` abre una ventana para el usuario: vista previa con audio, forma de onda, una pista con cada palabra (verde = confianza buena, naranja/rojo = dudosa, azul = fijada) y otra con las capas. Sirve para escuchar un pasaje en bucle y ajustar palabras por fotogramas antes de exportar. Sugiérelo cuando el usuario quiera afinar la sincronía a oído; tú puedes seguir editando el JSON o ejecutar `align`: el estudio se recarga solo cuando cambian en disco el proyecto o sus transcripciones (si el usuario tiene cambios sin guardar, le avisa en vez de recargar).
+
+- Arrastrar los bordes de una palabra (o la palabra entera) la ajusta a la rejilla de fotogramas y la fija (`locked`).
+- Teclas: Espacio reproducir · Tab / Mayús+Tab palabra siguiente/anterior · flechas izq./der. inicio ±1 fotograma · Mayús+flechas fin · Ctrl+flechas mover la palabra · L bucle sobre la palabra · Ctrl+S guardar · rueda desplazar · Ctrl+rueda zoom.
+- Panel lateral: texto del segmento editable + «Realinear segmento» / «Realinear todo», y «Render borrador».
+- Guardar escribe el `.transcript.json` (y su `.srt`); el proyecto no cambia porque las anclas se resuelven al renderizar.
 
 ## Audio
 
@@ -188,7 +247,7 @@ Lo que caracteriza estas ediciones (analizadas frame a frame):
 1. **Look**: `"style": "ryker"` (oscuro, contrastado, tinte azul/morado, franjas 2.35:1, viñeta, grano). Tramos en blanco y negro (`bw`) para dramatismo, con color de nuevo en el remate.
 2. **Intro**: tarjeta de título sobre fondo oscuro o estrellado: `gradient` + `particles: stars` + texto `title` ("MC1 VS MC2"), luego una tarjeta de temática ("TEMÁTICA: EXTRATERRESTRE") y la marca del editor (`watermark` o un texto con `animate_in: "wipe"`).
 3. **Subtítulos de las barras** centrados en pantalla, palabra por palabra, con la palabra clave de cada barra resaltada en caja de color: `captions` con `transcript` + `highlight_words`, o `segments` con `[palabra]`. Los colores rotan solos.
-4. **Palabras clave gigantes**: cuando la barra menciona algo visual (VEGETA, LUNA, REPTILIANO), un texto `banner` de 0.6–1 s exactamente en esa palabra, con `glitch_hit` o `punch`. Si tienes una imagen del concepto (planeta, luna, cerebro, personaje), ponla como clip corto (0.5–1.5 s, `zoom_to` 1.15) o capa `image` con `animate_in: "zoom_in"`.
+4. **Palabras clave gigantes**: cuando la barra menciona algo visual (VEGETA, LUNA, REPTILIANO), un texto `banner` anclado a esa palabra (`"start": "@vegeta", "end": "@vegeta:end+0.3"`), con `glitch_hit` o `punch` en `"at": "@vegeta"`. Si tienes una imagen o video del concepto (planeta, luna, cerebro, personaje), ponlo como capa `cutaway` anclada a la palabra (el audio de la batalla sigue sonando) con `zoom_to` 1.15, o como capa `image` con `animate_in: "zoom_in"`.
 5. **Punchlines**: `punch` en la palabra final de la barra fuerte (`intensity` 1–1.5), `echo` de audio sobre esa palabra (`target: "clips"`), y si el público explota (`analyze.loudest`), deja respirar el clip 1–2 s con `zoom` lento y quizá `shake` leve.
 6. **Ritmo**: cortes y transiciones en los `beats` (`analyze`). Transiciones rápidas: `whip`, `zoom_in`, `glitch`, `flash` de 0.25–0.4 s. Evita transiciones en mitad de una barra.
 7. **Efectos de textura**: `rgb_split` en golpes, `glitch` corto en cambios, `light_leak` suave en momentos épicos, `echo` de texto (`echo` en capa) en una barra que se repite.
@@ -203,18 +262,20 @@ Plantilla mínima:
   "output": {"preset": "youtube", "fps": 30},
   "style": "ryker",
   "sources": {"b": "C:/videos/batalla.mp4"},
+  "transcripts": {"b": "batalla.transcript.json"},
   "clips": [
     {"gradient": ["#12002e", "#000000"], "duration": 2.5},
     {"src": "b", "in": 754.2, "out": 771.8, "transition": {"type": "zoom_in", "duration": 0.4},
-     "effects": [{"type": "punch", "at": 9.6, "intensity": 1.2}]},
+     "effects": [{"type": "punch", "at": "@diminuto", "intensity": 1.2}]},
     {"src": "b", "in": 772.0, "out": 774.0, "speed": 0.5, "audio_mode": "pitch", "transition": {"type": "flash"},
      "effects": [{"type": "bw"}, {"type": "zoom", "from": 1.05, "to": 1.25}]}
   ],
   "layers": [
     {"type": "particles", "particle": "stars", "end": 2.5},
     {"type": "text", "preset": "title", "text": "LOBO\nVS\nCHUTY", "start": 0.2, "end": 2.4},
-    {"type": "captions", "transcript": "batalla.transcript.json", "highlight_words": ["planeta", "luna"]},
-    {"type": "text", "preset": "banner", "text": "VEGETA", "start": 8.1, "duration": 0.8}
+    {"type": "captions", "highlight_words": ["planeta", "luna"]},
+    {"type": "image", "preset": "cutaway", "src": "planeta.jpg", "start": "@planeta", "end": "@planeta:end+0.5", "zoom_to": 1.15},
+    {"type": "text", "preset": "banner", "text": "VEGETA", "start": "@vegeta", "end": "@vegeta:end+0.3"}
   ],
   "audio": [{"sfx": "riser", "start": 0.8, "duration": 1.7, "volume": 0.5}],
   "audio_effects": [{"type": "echo", "start": 11.9, "end": 12.3, "target": "clips"}]

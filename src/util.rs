@@ -11,6 +11,8 @@ impl<'de> Deserialize<'de> for Time {
         let v = serde_json::Value::deserialize(d)?;
         match v {
             serde_json::Value::Number(n) => Ok(Time(n.as_f64().unwrap_or(0.0))),
+            // ancla a palabra ("@montaña"): se resuelve antes (anchors.rs); aquí solo se valida la sintaxis
+            serde_json::Value::String(s) if s.trim_start().starts_with('@') => Ok(Time(f64::NAN)),
             serde_json::Value::String(s) => parse_time(&s).map(Time).map_err(serde::de::Error::custom),
             other => Err(serde::de::Error::custom(format!(
                 "tiempo inválido {other}: usa segundos (12.5) o \"m:ss.s\""

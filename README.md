@@ -15,12 +15,14 @@ Editor de video en Rust pensado para que una IA lo maneje. Le pides a Claude Cod
 - **Capas**: imágenes, video con croma (green screen), rectángulos, partículas (brasas, chispas, estrellas, nieve, confeti, bokeh, lluvia, polvo).
 - **Audio**: audio de los clips con fundidos cruzados, música con ducking automático, 27 efectos de sonido sintetizados (boom, whoosh, riser, impact, vine boom, airhorn, scratch, rewind...), efectos por rango (paso bajo/alto con barrido, eco con cola, reverb, tape stop, stutter, reversa, bitcrush, distorsión, censura), normalización y limitador.
 - **Análisis**: tempo y beats, golpes, momentos más fuertes (reacciones del público), silencios, cambios de plano, hojas de contacto con tiempos.
-- **Transcripción local** con Whisper (Rust puro, candle): frases y tiempos por palabra. Los subtítulos con `"transcript"` siguen tu edición solos, aunque cortes, reordenes o cambies la velocidad.
+- **Transcripción local** con Whisper (Rust puro, candle) y **alineación forzada palabra a palabra** (atención de Whisper + DTW), con confianza por palabra. Si corriges el texto, `align` lo vuelve a alinear con la voz; las palabras fijadas a mano no se mueven. Los subtítulos con `"transcript"` siguen tu edición solos, aunque cortes, reordenes o cambies la velocidad.
+- **Anclas a palabras**: cualquier tiempo puede ser `"@montaña"`, `"@montaña:end+0.2"`, `"@montaña#2"`. Un inserto (`cutaway`), un texto, un efecto o un sonido anclado a una palabra se mueve con ella si se corrige su tiempo.
+- **Editor visual** (`montaje studio proyecto.json`): vista previa con audio, forma de onda, bucle y ajuste de cada palabra por fotogramas antes de exportar.
 - **Estilos**: `ryker`, `cinematic`, `meme`, `shorts`. **Formatos**: `youtube`, `720p`, `4k`, `shorts`/`tiktok`/`reels`, `square`.
 
 ## Requisitos
 
-- Rust 1.80+ (`cargo`).
+- Rust 1.92+ (`cargo`). El editor visual usa eframe 0.35; las versiones más nuevas de eframe piden Rust 1.95.
 - ffmpeg y ffprobe en el PATH (probado con ffmpeg 7.1 de gyan.dev). Otra ruta: variables `MONTAJE_FFMPEG` y `MONTAJE_FFPROBE`.
 - `curl` (viene con Windows 10+) para descargar el modelo de Whisper la primera vez (~920 MB el modelo `small`, en `%LOCALAPPDATA%\montaje\models`; cámbialo con `MONTAJE_MODELS`).
 
@@ -31,11 +33,11 @@ cargo install --path .
 # o solo compilar: cargo build --release  (queda en target\release\montaje.exe)
 ```
 
-Sin transcripción (compila más rápido): `cargo install --path . --no-default-features`.
+Sin transcripción ni editor visual (compila más rápido): `cargo install --path . --no-default-features`. Solo sin el editor visual: `--no-default-features --features whisper`.
 
 ## Conectar tu IA (MCP)
 
-El servidor MCP se arranca con `montaje mcp` (stdio). Herramientas: `guide`, `catalog`, `probe`, `analyze`, `contact_sheet`, `transcribe`, `check`, `preview`, `render`.
+El servidor MCP se arranca con `montaje mcp` (stdio). Herramientas: `guide`, `catalog`, `probe`, `analyze`, `contact_sheet`, `transcribe`, `align`, `align_text`, `check`, `preview`, `render`.
 
 Los renders y transcripciones pueden durar más de un minuto, así que conviene subir el tiempo máximo por herramienta.
 
@@ -82,6 +84,9 @@ montaje probe video.mp4
 montaje sheet video.mp4 --from 60 --to 120 --count 24      # imagen con miniaturas y tiempos
 montaje analyze video.mp4 --scenes                          # beats, picos, silencios, cortes
 montaje transcribe video.mp4 --from 60 --to 120 --lang es   # .transcript.json + .srt
+montaje align video.transcript.json --segments 3,4          # realinear tras corregir el texto
+montaje align-text video.mp4 --from 60 --to 85 --text-file letra.txt   # alinear una letra conocida
+montaje studio proyecto.json                                 # editor visual: audio, onda, palabras
 montaje init proyecto.json --style ryker --src video.mp4    # proyecto de ejemplo
 montaje check proyecto.json
 montaje preview proyecto.json --at 1,4.5,9
@@ -97,7 +102,8 @@ Los archivos auxiliares (hojas de contacto, vistas previas, transcripciones) se 
 
 ## Límites actuales
 
-- La transcripción va en CPU: con el modelo `small`, ~1.6× tiempo real (30 s de audio en ~18 s). Transcribe solo los tramos que vas a usar. Los tiempos por palabra se estiman dentro de cada frase y se ajustan a los ataques de la voz; no son exactos al fotograma.
+- La transcripción y la alineación van en CPU: con el modelo `small`, ~1.6× tiempo real (30 s de audio en ~18 s). Transcribe solo los tramos que vas a usar.
+- La alineación tiene resolución de 20 ms. Transcribiendo el mismo tramo con dos ventanas distintas, la mediana de diferencia por palabra es 0 ms y el máximo 160 ms. Las palabras mal reconocidas (nombres, jerga, público encima) hay que corregirlas en el texto y realinear, o ajustarlas en el editor visual.
 - Sin emojis a color en los textos.
 - Las imágenes de conceptos (planetas, personajes) y la música deben aportarse como archivos; el editor no genera imágenes.
 - Efectos pesados (zoom_blur, motion blur, spin, glow grande) bajan la velocidad en los frames donde actúan.

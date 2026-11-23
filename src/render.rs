@@ -257,6 +257,19 @@ impl<'a> Renderer<'a> {
             }
             None => Frame::filled(self.w, self.h, tl.background),
         };
+        // capas "base" (cutaways): forman parte del video y reciben la gradación y los efectos globales
+        for li in 0..tl.layers.len() {
+            let l = &tl.layers[li];
+            if l.l.base.unwrap_or(false) && t >= l.start && t < l.end {
+                if let Err(e) = self.draw_layer(li, &mut canvas, t, frame_no) {
+                    let msg = format!("layers[{li}]: {e}");
+                    if !self.warnings.contains(&msg) {
+                        self.warnings.push(msg);
+                    }
+                    self.layers[li].failed = true;
+                }
+            }
+        }
         let t1 = Instant::now();
         fx::apply_all(&mut canvas, &tl.fx_video, t, &ctx, Edge::Mirror);
         let t2 = Instant::now();
@@ -265,7 +278,7 @@ impl<'a> Renderer<'a> {
         }
         for li in 0..tl.layers.len() {
             let l = &tl.layers[li];
-            if t >= l.start && t < l.end {
+            if !l.l.base.unwrap_or(false) && t >= l.start && t < l.end {
                 let a = Instant::now();
                 let r = self.draw_layer(li, &mut canvas, t, frame_no);
                 if prof && frame_no % 30 == 0 {

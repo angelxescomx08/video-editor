@@ -1,0 +1,516 @@
+{
+  "output": {
+    "preset": "youtube",
+    "fps": 30,
+    "quality": 19,
+    "volume": 0.94
+  },
+  "style": "ryker",
+  "sources": {
+    "batalla": "C:/Users/USER/Downloads/YTSave.to_YouTube_Media_sD_x_7K4c5s_Azuky-vs-Chuty-FMSMéxico-2026-27-Jornada-1-Temporada-7-I-Urban-Roosters_001_1080p.mp4"
+  },
+  "clips": [
+    {
+      "label": "Apertura",
+      "gradient": [
+        "#23103c",
+        "#080513"
+      ],
+      "gradient_angle": 108,
+      "duration": 1.85
+    },
+    {
+      "label": "Casa, nacionalidad y estrella",
+      "src": "batalla",
+      "in": 108.25,
+      "out": 137.43,
+      "transition": {
+        "type": "zoom_in",
+        "duration": 0.27,
+        "sfx": false
+      }
+    }
+  ],
+  "layers": [
+    {
+      "type": "particles",
+      "particle": "stars",
+      "count": 90,
+      "colors": [
+        "#92adff",
+        "#cda8ff",
+        "#ffffff"
+      ],
+      "particle_size": 1.6,
+      "particle_speed": 0.4,
+      "end": 1.85
+    },
+    {
+      "type": "text",
+      "preset": "title",
+      "text": "AZUKY  VS  CHUTY",
+      "font": "anton",
+      "size": 172,
+      "letter_spacing": 0.055,
+      "color": "#eef2ff",
+      "glow_color": "#7333ff",
+      "glow_radius": 18,
+      "y": 0.48,
+      "start": 0.12,
+      "end": 1.75,
+      "animate_in": {
+        "type": "zoom_out",
+        "duration": 0.36
+      },
+      "animate_out": {
+        "type": "fade",
+        "duration": 0.18
+      }
+    },
+    {
+      "type": "rect",
+      "color": "#a383ff",
+      "width": "13%",
+      "height": 4,
+      "x": 0.5,
+      "y": 0.59,
+      "start": 0.26,
+      "end": 1.74,
+      "animate_in": {
+        "type": "wipe",
+        "duration": 0.28
+      },
+      "animate_out": {
+        "type": "fade",
+        "duration": 0.18
+      }
+    },
+    {
+      "type": "text",
+      "text": "FMS MÉXICO",
+      "font": "bebas",
+      "size": 40,
+      "letter_spacing": 0.29,
+      "color": "#bca2ff",
+      "y": 0.65,
+      "start": 0.32,
+      "end": 1.74,
+      "animate_in": {
+        "type": "fade",
+        "duration": 0.22
+      },
+      "animate_out": {
+        "type": "fade",
+        "duration": 0.18
+      }
+    },
+    {
+      "type": "captions",
+      "preset": "subtitle",
+      "segments": [
+        {
+          "start": 1.97,
+          "end": 3.09,
+          "text": "Este en [España]",
+          "word_times": [
+            1.97,
+            2.32,
+            2.58
+          ]
+        },
+        {
+          "start": 3.09,
+          "end": 4.16,
+          "text": "es un [puñetas]",
+          "word_times": [
+            3.09,
+            3.3,
+            3.53
+          ]
+        },
+        {
+          "start": 4.17,
+          "end": 5.7,
+          "text": "Allí nadie lo quiere",
+          "word_times": [
+            4.17,
+            4.54,
+            4.98,
+            5.24
+          ]
+        },
+        {
+          "start": 5.7,
+          "end": 6.97,
+          "text": "en sus [banquetas]",
+          "word_times": [
+            5.7,
+            5.94,
+            6.31
+          ]
+        },
+        {
+          "start": 7.02,
+          "end": 8.67,
+          "text": "Pero esta es mi [casa]",
+          "word_times": [
+            7.02,
+            7.39,
+            7.78,
+            8.04,
+            8.29
+          ]
+        },
+        {
+          "start": 8.67,
+          "end": 10.74,
+          "text": "Y en mi casa se me [respeta]",
+          "word_times": [
+            8.67,
+            8.84,
+            9.11,
+            9.35,
+            9.73,
+            9.98,
+            10.22
+          ]
+        },
+        {
+          "start": 10.83,
+          "end": 12.49,
+          "text": "¿A mí qué me vas a [contar]?",
+          "word_times": [
+            10.83,
+            11,
+            11.17,
+            11.44,
+            11.64,
+            11.88,
+            12.08
+          ]
+        },
+        {
+          "start": 12.49,
+          "end": 14.14,
+          "text": "Hoy tu casa a mí también",
+          "word_times": [
+            12.49,
+            12.78,
+            12.95,
+            13.28,
+            13.46,
+            13.62
+          ]
+        },
+        {
+          "start": 14.14,
+          "end": 15.09,
+          "text": "me va a [gritar]",
+          "word_times": [
+            14.14,
+            14.33,
+            14.51,
+            14.69
+          ]
+        },
+        {
+          "start": 15.09,
+          "end": 16.43,
+          "text": "En las [competiciones]",
+          "word_times": [
+            15.09,
+            15.3,
+            15.57
+          ]
+        },
+        {
+          "start": 16.43,
+          "end": 17.49,
+          "text": "te vine pa’ [ganar]",
+          "word_times": [
+            16.43,
+            16.65,
+            16.94,
+            17.12
+          ]
+        },
+        {
+          "start": 17.49,
+          "end": 18.74,
+          "text": "Soy como [Quiñones]",
+          "word_times": [
+            17.49,
+            17.73,
+            18.02
+          ]
+        },
+        {
+          "start": 18.74,
+          "end": 20.23,
+          "text": "con la doble [nacionalidad]",
+          "word_times": [
+            18.74,
+            19.03,
+            19.19,
+            19.55
+          ]
+        },
+        {
+          "start": 21.04,
+          "end": 22.47,
+          "text": "La respuesta se te [mete]",
+          "word_times": [
+            21.04,
+            21.14,
+            21.77,
+            21.98,
+            22.18
+          ]
+        },
+        {
+          "start": 22.49,
+          "end": 24,
+          "text": "Es por eso que te [gano]",
+          "word_times": [
+            22.49,
+            22.68,
+            22.96,
+            23.24,
+            23.47,
+            23.69
+          ]
+        },
+        {
+          "start": 24.01,
+          "end": 25.43,
+          "text": "Y me traen a tu [peña]",
+          "word_times": [
+            24.01,
+            24.19,
+            24.36,
+            24.76,
+            24.9,
+            25.12
+          ]
+        },
+        {
+          "start": 25.44,
+          "end": 27.75,
+          "text": "¿Sabes por qué traen a esta [estrella]?",
+          "word_times": [
+            25.44,
+            25.84,
+            26.11,
+            26.37,
+            26.72,
+            26.87,
+            27.23
+          ]
+        },
+        {
+          "start": 27.76,
+          "end": 29.42,
+          "text": "Porque si no habría [menos]",
+          "word_times": [
+            27.76,
+            28.2,
+            28.4,
+            28.62,
+            29.06
+          ]
+        },
+        {
+          "start": 29.46,
+          "end": 30.95,
+          "text": "que en una mala [reseña]",
+          "word_times": [
+            29.46,
+            29.72,
+            29.92,
+            30.15,
+            30.52
+          ]
+        }
+      ],
+      "y": 0.58,
+      "size": 78,
+      "max_width": "82%",
+      "letter_spacing": 0.115,
+      "highlight_colors": [
+        "#325db8",
+        "#7739ac",
+        "#085e6f"
+      ],
+      "shadow_color": "#000000f0",
+      "shadow_blur": 12,
+      "shadow_offset": [
+        2,
+        5
+      ],
+      "stroke_width": 3.4
+    },
+    {
+      "type": "text",
+      "preset": "banner",
+      "text": "DOBLE NACIONALIDAD",
+      "font": "anton",
+      "size": 109,
+      "letter_spacing": 0.06,
+      "max_width": "90%",
+      "color": "#fff7e3",
+      "box_color": "#3e248acf",
+      "y": 0.52,
+      "start": 20.23,
+      "end": 21.03,
+      "animate_in": {
+        "type": "pop",
+        "duration": 0.19,
+        "intensity": 0.52
+      },
+      "animate_out": {
+        "type": "fade",
+        "duration": 0.17
+      },
+      "italic": false
+    }
+  ],
+  "effects": [
+    {
+      "type": "fade",
+      "start": 0,
+      "end": 0.17,
+      "from": 1,
+      "to": 0
+    },
+    {
+      "type": "grade",
+      "start": 1.85,
+      "brightness": 0.06,
+      "saturation": 1.05
+    },
+    {
+      "type": "letterbox",
+      "start": 1.85,
+      "ratio": 2.57
+    },
+    {
+      "type": "zoom",
+      "start": 7.36,
+      "end": 9.01,
+      "from": 1,
+      "to": 1.07,
+      "center": [
+        0.46,
+        0.5
+      ],
+      "fade_out": 0.24
+    },
+    {
+      "type": "punch",
+      "at": 10.25,
+      "intensity": 0.71,
+      "volume": 0.24,
+      "duration": 0.27
+    },
+    {
+      "type": "bw",
+      "start": 17.66,
+      "end": 20.27,
+      "amount": 0.85,
+      "fade_in": 0.28,
+      "fade_out": 0.18
+    },
+    {
+      "type": "zoom",
+      "start": 17.66,
+      "end": 19.26,
+      "from": 1,
+      "to": 1.12,
+      "center": [
+        0.52,
+        0.48
+      ],
+      "fade_out": 0.25
+    },
+    {
+      "type": "punch",
+      "at": 20.22,
+      "intensity": 0.97,
+      "volume": 0.33,
+      "duration": 0.38
+    },
+    {
+      "type": "light_leak",
+      "start": 20.35,
+      "end": 21.01,
+      "colors": [
+        "#5a29f1",
+        "#254fdb"
+      ],
+      "amount": 0.18,
+      "fade_in": 0.1,
+      "fade_out": 0.3
+    },
+    {
+      "type": "glitch_hit",
+      "at": 30.55,
+      "intensity": 0.6,
+      "volume": 0.19,
+      "duration": 0.2
+    },
+    {
+      "type": "fade",
+      "start": 30.76,
+      "end": 31.03,
+      "from": 0,
+      "to": 1
+    }
+  ],
+  "audio": [
+    {
+      "sfx": "riser",
+      "at": 0.15,
+      "duration": 1.58,
+      "volume": 0.2
+    },
+    {
+      "sfx": "whoosh",
+      "at": 1.53,
+      "duration": 0.46,
+      "volume": 0.2
+    },
+    {
+      "sfx": "sub_drop",
+      "at": 19.15,
+      "duration": 0.64,
+      "volume": 0.12
+    }
+  ],
+  "audio_effects": [
+    {
+      "type": "gain",
+      "target": "clips",
+      "start": 1.85,
+      "end": 1.945,
+      "volume": 0.15,
+      "volume_to": 1
+    },
+    {
+      "type": "echo",
+      "target": "clips",
+      "start": 19.92,
+      "end": 20.29,
+      "delay": 0.16,
+      "feedback": 0.25,
+      "mix": 0.22
+    },
+    {
+      "type": "gain",
+      "target": "master",
+      "start": 30.73,
+      "end": 31.03,
+      "volume": 1,
+      "volume_to": 0
+    }
+  ]
+}
