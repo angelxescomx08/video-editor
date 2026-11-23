@@ -110,6 +110,37 @@ pub struct TLayer {
     pub effects: Vec<TFx>,
     pub path: Option<String>,
     pub info: Option<MediaInfo>,
+    pub t_in: Option<TTransition>,
+    pub t_out: Option<TTransition>,
+}
+
+impl TLayer {
+    /// Primer instante visible (la transición de entrada empieza medio tramo antes de `start`).
+    pub fn vis_start(&self) -> f64 {
+        self.start - self.t_in.as_ref().map(|t| t.duration / 2.0).unwrap_or(0.0)
+    }
+    pub fn vis_end(&self) -> f64 {
+        self.end + self.t_out.as_ref().map(|t| t.duration / 2.0).unwrap_or(0.0)
+    }
+    pub fn active(&self, t: f64) -> bool {
+        t >= self.vis_start() && t < self.vis_end()
+    }
+    /// Transición en curso: (transición, progreso 0..1, entrando).
+    pub fn transition_at(&self, t: f64) -> Option<(&TTransition, f32, bool)> {
+        if let Some(tr) = &self.t_in {
+            let a = self.start - tr.duration / 2.0;
+            if tr.duration > 0.0 && t >= a && t < a + tr.duration {
+                return Some((tr, ((t - a) / tr.duration) as f32, true));
+            }
+        }
+        if let Some(tr) = &self.t_out {
+            let a = self.end - tr.duration / 2.0;
+            if tr.duration > 0.0 && t >= a && t < a + tr.duration {
+                return Some((tr, ((t - a) / tr.duration) as f32, false));
+            }
+        }
+        None
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -720,6 +751,45 @@ fn synth_or_file(c: &Ctx, name: &str, at: f64, vol: f32) -> TAudio {
     }
 }
 
+fn make_transition(tr: &Transition, seed: u64, where_: &str, warnings: &mut Vec<String>) -> TTransition {
+    if !TRANSITIONS.iter().any(|(n, _)| *n == tr.kind) && !["crossfade", "dissolve", "push", "iris", "dip", "warp"].contains(&tr.kind.as_str()) {
+        warnings.push(format!("{where_}: transición desconocida '{}'", tr.kind));
+    }
+    let d = tr.duration.unwrap_or(match tr.kind.as_str() {
+        "cut" => 0.0,
+        "flash" => 0.3,
+        "glitch" | "rgb" => 0.35,
+        "whip" => 0.35,
+        _ => 0.5,
+    });
+    TTransition {
+        kind: tr.kind.clone(),
+        duration: d.max(0.0),
+        color: color_or(&tr.color, [255, 255, 255, 255]),
+        direction: tr.direction.clone().unwrap_or_else(|| "left".into()),
+        ease: tr.ease,
+        intensity: tr.intensity.unwrap_or(1.0),
+        seed,
+    }
+}
+
+/// Sonido automático de una transición (o el indicado en `sfx`) en el instante `cut`.
+fn push_transition_sfx(c: &mut Ctx, tr: &TTransition, spec: &Transition, cut: f64) {
+    let def = transition_sfx(&tr.kind);
+    match (&spec.sfx, def) {
+        (Some(Value::Bool(false)), _) => {}
+        (Some(Value::String(s)), d) => {
+            let lead = d.map(|x| x.1).unwrap_or(0.2);
+            let a = synth_or_file(c, s, (cut - lead).max(0.0), spec.sfx_volume.unwrap_or(0.6));
+            c.extra_audio.push(a);
+        }
+        (_, Some((name, lead))) => {
+            c.extra_audio.push(synth_audio(name, (cut - lead).max(0.0), spec.sfx_volume.unwrap_or(0.55)));
+        }
+        _ => {}
+    }
+}
+
 fn transition_sfx(kind: &str) -> Option<(&'static str, f64)> {
     // (sonido, adelanto respecto al corte)
     match kind {
@@ -839,27 +909,11 @@ pub fn prepare(p: &Project, base_dir: &Path) -> Result<Timeline> {
         if dur <= 0.0 {
             bail!("{where_}: duración nula (revisa in/out/duration/freeze)");
         }
-        let trans_in = cl.transition.as_ref().filter(|_| i > 0).and_then(|tr| {
-            if !TRANSITIONS.iter().any(|(n, _)| *n == tr.kind) && !["crossfade", "dissolve", "push", "iris", "dip", "warp"].contains(&tr.kind.as_str()) {
-                c.warnings.push(format!("{where_}: transición desconocida '{}'", tr.kind));
-            }
-            let d = tr.duration.unwrap_or(match tr.kind.as_str() {
-                "cut" => 0.0,
-                "flash" => 0.3,
-                "glitch" | "rgb" => 0.35,
-                "whip" => 0.35,
-                _ => 0.5,
-            });
-            Some(TTransition {
-                kind: tr.kind.clone(),
-                duration: d,
-                color: color_or(&tr.color, [255, 255, 255, 255]),
-                direction: tr.direction.clone().unwrap_or_else(|| "left".into()),
-                ease: tr.ease,
-                intensity: tr.intensity.unwrap_or(1.0),
-                seed: hash64(i as u64 * 7919),
-            })
-        });
+        let trans_in = cl
+            .transition
+            .as_ref()
+            .filter(|_| i > 0)
+            .map(|tr| make_transition(tr, hash64(i as u64 * 7919), &where_, &mut c.warnings));
         let fit = Fit::parse(cl.fit.as_deref());
         clips.push(TClip {
             index: i,
@@ -914,19 +968,7 @@ pub fn prepare(p: &Project, base_dir: &Path) -> Result<Timeline> {
     // sonidos de transición
     for i in 1..clips.len() {
         if let (Some(tr), Some(spec)) = (&clips[i].trans_in, &p.clips[i].transition) {
-            let def = transition_sfx(&tr.kind);
-            let cut = clips[i].start;
-            match (&spec.sfx, def) {
-                (Some(Value::Bool(false)), _) => {}
-                (Some(Value::String(s)), d) => {
-                    let lead = d.map(|x| x.1).unwrap_or(0.2);
-                    c.extra_audio.push(synth_or_file(&c, s, (cut - lead).max(0.0), spec.sfx_volume.unwrap_or(0.6)));
-                }
-                (_, Some((name, lead))) => {
-                    c.extra_audio.push(synth_audio(name, (cut - lead).max(0.0), spec.sfx_volume.unwrap_or(0.55)));
-                }
-                _ => {}
-            }
+            push_transition_sfx(&mut c, tr, spec, clips[i].start);
         }
     }
 
@@ -967,8 +1009,27 @@ pub fn prepare(p: &Project, base_dir: &Path) -> Result<Timeline> {
                     Err(e) => c.warnings.push(format!("layers[{i}]: {e}")),
                 }
             }
-            let hl: Vec<String> = l.highlight_words.clone().unwrap_or_default().iter().map(|w| norm_word(w)).collect();
-            for s in segs {
+            // "palabra" o "palabra|#color" (color fijo de la caja: útil para colorear familias de rimas)
+            let hl: Vec<(String, Option<String>)> = l
+                .highlight_words
+                .clone()
+                .unwrap_or_default()
+                .iter()
+                .map(|w| match w.rsplit_once('|') {
+                    Some((word, col)) => (norm_word(word), Some(col.trim().to_string())),
+                    None => (norm_word(w), None),
+                })
+                .collect();
+            // con start/end la capa solo muestra los subtítulos que empiezan dentro de esa ventana
+            let win_a = l.start.map(|t| t.0);
+            let win_b = l.end.map(|t| t.0).or(l.duration.map(|d| win_a.unwrap_or(0.0) + d));
+            for mut s in segs {
+                if win_a.is_some_and(|a| s.start.0 < a - 1e-6) || win_b.is_some_and(|b| s.start.0 >= b) {
+                    continue;
+                }
+                if let Some(b) = win_b {
+                    s.end = Time(s.end.0.min(b));
+                }
                 let mut tl = l.clone();
                 tl.kind = "text".into();
                 tl.segments = None;
@@ -981,7 +1042,14 @@ pub fn prepare(p: &Project, base_dir: &Path) -> Result<Timeline> {
                 } else {
                     s.text
                         .split_whitespace()
-                        .map(|w| if !w.contains('[') && hl.contains(&norm_word(w)) { format!("[{w}]") } else { w.to_string() })
+                        .map(|w| {
+                            let found = if w.contains('[') { None } else { hl.iter().find(|(h, _)| *h == norm_word(w)) };
+                            match found {
+                                Some((_, Some(col))) => format!("[{w}|{col}]"),
+                                Some((_, None)) => format!("[{w}]"),
+                                None => w.to_string(),
+                            }
+                        })
                         .collect::<Vec<_>>()
                         .join(" ")
                 };
@@ -1104,7 +1172,24 @@ pub fn prepare(p: &Project, base_dir: &Path) -> Result<Timeline> {
             }
         }
         let effects = c.effects(&l.effects.clone(), (0.0, end - start), start, &format!("{where_}.effects"));
-        layers.push(TLayer { l, start, end, effects, path, info });
+        // transiciones de capa: como mucho la mitad de la vida de la capa cada una
+        let life = end - start;
+        let mk = |spec: &Option<Transition>, salt: u64, c: &mut Ctx| {
+            spec.as_ref().map(|s| {
+                let mut tr = make_transition(s, hash64(i as u64 * 104729 + salt), &where_, &mut c.warnings);
+                tr.duration = tr.duration.min(life);
+                tr
+            })
+        };
+        let t_in = mk(&l.transition_in, 1, &mut c);
+        let t_out = mk(&l.transition_out, 2, &mut c);
+        if let (Some(tr), Some(spec)) = (&t_in, &l.transition_in) {
+            push_transition_sfx(&mut c, tr, spec, start);
+        }
+        if let (Some(tr), Some(spec)) = (&t_out, &l.transition_out) {
+            push_transition_sfx(&mut c, tr, spec, end);
+        }
+        layers.push(TLayer { l, start, end, effects, path, info, t_in, t_out });
     }
 
     // ---------------- efectos globales

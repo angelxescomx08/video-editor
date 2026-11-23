@@ -278,6 +278,10 @@ pub struct Layer {
     pub radius: Option<f32>,
     /// Dibujar como parte del video (antes de la gradación y efectos globales). Lo activa el preset "cutaway".
     pub base: Option<bool>,
+    /// Transición de entrada (centrada en `start`): mezcla el plano sin la capa con el plano con la capa.
+    pub transition_in: Option<Transition>,
+    /// Transición de salida (centrada en `end`).
+    pub transition_out: Option<Transition>,
     // partículas
     pub particle: Option<String>,
     pub count: Option<u32>,

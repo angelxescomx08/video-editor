@@ -232,7 +232,7 @@ impl<'a> Renderer<'a> {
             }
         }
         for (li, l) in tl.layers.iter().enumerate() {
-            if t > l.end + 0.1 {
+            if t > l.vis_end() + 0.1 {
                 if let Some(ls) = self.layers.get_mut(li) {
                     ls.stream = None;
                     if ls.text.is_some() {
@@ -260,8 +260,8 @@ impl<'a> Renderer<'a> {
         // capas "base" (cutaways): forman parte del video y reciben la gradación y los efectos globales
         for li in 0..tl.layers.len() {
             let l = &tl.layers[li];
-            if l.l.base.unwrap_or(false) && t >= l.start && t < l.end {
-                if let Err(e) = self.draw_layer(li, &mut canvas, t, frame_no) {
+            if l.l.base.unwrap_or(false) && l.active(t) {
+                if let Err(e) = self.draw_layer_tr(li, &mut canvas, t, frame_no) {
                     let msg = format!("layers[{li}]: {e}");
                     if !self.warnings.contains(&msg) {
                         self.warnings.push(msg);
@@ -278,9 +278,9 @@ impl<'a> Renderer<'a> {
         }
         for li in 0..tl.layers.len() {
             let l = &tl.layers[li];
-            if !l.l.base.unwrap_or(false) && t >= l.start && t < l.end {
+            if !l.l.base.unwrap_or(false) && l.active(t) {
                 let a = Instant::now();
-                let r = self.draw_layer(li, &mut canvas, t, frame_no);
+                let r = self.draw_layer_tr(li, &mut canvas, t, frame_no);
                 if prof && frame_no % 30 == 0 {
                     eprintln!("[prof]   layer {li} {} {:.1}ms", l.l.kind, a.elapsed().as_secs_f64() * 1e3);
                 }
@@ -300,6 +300,25 @@ impl<'a> Renderer<'a> {
     }
 
     // ------------------------------------------------------------ capas
+
+    /// Dibuja la capa; durante sus transiciones mezcla el plano sin la capa (a) con el plano con la capa (b).
+    fn draw_layer_tr(&mut self, li: usize, canvas: &mut Frame, t: f64, frame_no: u64) -> Result<()> {
+        let tl = self.tl;
+        let Some((tr, p, entering)) = tl.layers[li].transition_at(t) else {
+            return self.draw_layer(li, canvas, t, frame_no);
+        };
+        let tr = tr.clone();
+        let mut with = canvas.clone();
+        self.draw_layer(li, &mut with, t, frame_no)?;
+        let ctx = self.ctx(t, frame_no);
+        let without = std::mem::replace(canvas, Frame::new(1, 1));
+        *canvas = if entering {
+            transitions::apply(&tr, without, with, p, &ctx)
+        } else {
+            transitions::apply(&tr, with, without, p, &ctx)
+        };
+        Ok(())
+    }
 
     fn text_spec(&self, l: &Layer) -> Result<TextSpec> {
         let k = self.k;
@@ -423,8 +442,7 @@ impl<'a> Renderer<'a> {
                     } else {
                         Fit::Stretch
                     };
-                    let a = l.in_.map(|t| t.0).unwrap_or(0.0);
-                    let b = l.out.map(|t| t.0).unwrap_or(info.duration);
+                    let (a, b) = video_layer_range(tly);
                     let fps = info.fps.min(60.0).max(1.0);
                     self.layers[li].stream = Some(VideoStream::new(&tly.path.clone().unwrap(), tw, th, fps, fit, l.crop, false, a, b));
                     self.layers[li].vsize = (tw, th);
@@ -601,7 +619,8 @@ impl<'a> Renderer<'a> {
             return Ok(());
         }
         self.ensure_layer(li)?;
-        let st = self.anim_state(l, lt, life, seed, frame_no);
+        // en las asas de las transiciones (antes de start / después de end) la capa se ve como en sus bordes
+        let st = self.anim_state(l, lt.clamp(0.0, (life - 1e-4).max(0.0)), life, seed, frame_no);
         if st.opacity <= 0.002 || st.sx.abs() < 1e-3 || st.sy.abs() < 1e-3 {
             return Ok(());
         }
@@ -641,10 +660,14 @@ impl<'a> Renderer<'a> {
                 let b = l.out.map(|x| x.0).unwrap_or(info.duration);
                 let span = (b - a).max(0.01);
                 let mut s = lt * l.speed.unwrap_or(1.0);
-                if l.loop_.unwrap_or(false) {
-                    s %= span;
-                }
-                let s = (a + s).min(b);
+                let s = if l.loop_.unwrap_or(false) {
+                    s = s.rem_euclid(span);
+                    a + s
+                } else {
+                    // fuera de [in, out] (asas de las transiciones) sigue la fuente si existe
+                    let (ha, hb) = video_layer_range(tly);
+                    (a + s).clamp(ha, hb)
+                };
                 let (tw, th) = self.layers[li].vsize;
                 let fr = self.layers[li].stream.as_mut().unwrap().get(s)?;
                 let mut f = fr.map(|x| (*x).clone()).unwrap_or_else(|| Frame::new(tw, th));
@@ -755,6 +778,21 @@ impl<'a> Renderer<'a> {
         }
         Ok(())
     }
+}
+
+/// Rango de la fuente que decodifica una capa de video: [in, out] más las asas de sus transiciones.
+fn video_layer_range(tly: &TLayer) -> (f64, f64) {
+    let l = &tly.l;
+    let dur = tly.info.as_ref().map(|i| i.duration).unwrap_or(f64::MAX);
+    let a = l.in_.map(|t| t.0).unwrap_or(0.0);
+    let b = l.out.map(|t| t.0).unwrap_or(dur);
+    if l.loop_.unwrap_or(false) {
+        return (a, b);
+    }
+    let sp = l.speed.unwrap_or(1.0).max(0.01);
+    let pre = (tly.start - tly.vis_start()) * sp;
+    let post = (tly.vis_end() - tly.end) * sp;
+    ((a - pre).max(0.0), (b + post).min(dur))
 }
 
 fn text_skew(l: &Layer) -> f32 {

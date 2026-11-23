@@ -4,3 +4,9 @@
 *.mp4
 *.wav
 !examples/**/*.json
+
+# proyectos de video (JSON, transcripciones, subtítulos, builders e insertos en refs/): no se suben
+/proyectos/
+
+# cookies exportadas del navegador para yt-dlp
+*cookies*.txt

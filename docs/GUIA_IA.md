@@ -145,6 +145,7 @@ Se dibujan encima de los clips en orden (la última queda arriba). Campos comune
 - `drift` [dx, dy]: desplazamiento lineal durante la capa. `zoom_to`: zoom lento (Ken Burns), p. ej. 1.15.
 - `effects`: efectos sobre la propia capa (tiempos relativos a la capa), p. ej. `rgb_split`, `glitch`, `glow`.
 - `base: true`: la capa se dibuja como parte del video (antes de la gradación y los efectos globales), así recibe el mismo look. Lo usa el preset `cutaway`.
+- `transition_in`, `transition_out`: transición de clip (mismos tipos y campos que `transition` de los clips: `{"type": "whip", "duration": 0.3, "direction": "left"}`) entre el video sin la capa y con ella. Se centra en `start`/`end` de la capa, así que la capa se ve medio `duration` antes de `start` y después de `end`. Un `video` sigue reproduciéndose durante la transición (usa material antes de `in` y después de `out`). La duración se limita a la vida de la capa. Sirve para insertos `cutaway` que entran con whip, glitch o zoom sin cortar el audio de la batalla.
 
 ### `text`
 
@@ -161,7 +162,7 @@ Se dibujan encima de los clips en orden (la última queda arriba). Campos comune
 ```json
 {"type": "captions", "segments": [{"start": 4.2, "end": 6.0, "text": "y cada vez que [suelto]", "word_times": [4.2, 4.5, 4.7, 4.9, 5.2]}]}
 ```
-También `srt: "archivo.srt"` o **`transcript: "video.transcript.json"`** (salida de `transcribe`). Con `transcript` los tiempos de la fuente se **convierten solos al tiempo de salida** según los clips que usan esa fuente: los subtítulos siguen tu edición aunque cortes, reordenes o cambies la velocidad. Opciones: `max_words` (palabras por subtítulo, 5), `highlight_words` (lista de palabras que se resaltan en caja: `["planeta", "diminuto"]`). Cada subtítulo es una capa de texto con el preset `subtitle` (o `caption` en shorts); el resto de campos de estilo se heredan. Si el proyecto tiene `transcripts`, basta con `{"type": "captions"}`: usa todas.
+También `srt: "archivo.srt"` o **`transcript: "video.transcript.json"`** (salida de `transcribe`). Con `transcript` los tiempos de la fuente se **convierten solos al tiempo de salida** según los clips que usan esa fuente: los subtítulos siguen tu edición aunque cortes, reordenes o cambies la velocidad. Opciones: `max_words` (palabras por subtítulo, 5), `highlight_words` (lista de palabras que se resaltan en caja: `["planeta", "diminuto"]`; con `"palabra|#color"` la caja usa ese color fijo en vez de rotar, útil para dar el mismo color a cada familia de rimas: `["roja|#b71c1c", "nota|#b71c1c", "leche|#6a1b9a"]`). Cada subtítulo es una capa de texto con el preset `subtitle` (o `caption` en shorts); el resto de campos de estilo se heredan. Si el proyecto tiene `transcripts`, basta con `{"type": "captions"}`: usa todas. Con `start`/`end` la capa solo muestra los subtítulos que empiezan en esa ventana (y los corta en `end`): sirve para quitar los subtítulos en un tramo donde pones tu propio texto (dos capas `captions`, una antes y otra después).
 
 ### `image`, `video`, `rect`, `particles`
 
